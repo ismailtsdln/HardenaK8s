@@ -15,6 +15,11 @@ HardenaK8s is a robust Kubernetes security auditing and hardening CLI tool writt
 - Go 1.21 or later
 - Access to a Kubernetes cluster (kubeconfig or in-cluster)
 
+### Install via Go
+```bash
+go install github.com/ismailtsdln/HardenaK8s@latest
+```
+
 ### Build from source
 ```bash
 git clone https://github.com/ismailtsdln/HardenaK8s.git

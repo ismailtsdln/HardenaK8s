@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ismailtsdln/HardenaK8s/internal/logger"
 	"github.com/ismailtsdln/HardenaK8s/internal/policy"
 	"github.com/ismailtsdln/HardenaK8s/internal/report"
+	"github.com/ismailtsdln/HardenaK8s/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,37 +24,45 @@ and generates a report in the specified format (JSON, YAML, or HTML).`,
 		outputDir, _ := cmd.Flags().GetString("output-dir")
 		outputFormat := viper.GetString("output")
 
-		logger.Log.Info("Generating report", "input", inputFile, "format", outputFormat)
+		fmt.Println(ui.StyleHeader.Render("Generating Security Report..."))
+		fmt.Println(ui.Info(fmt.Sprintf("Input:  %s", inputFile)))
+		fmt.Println(ui.Info(fmt.Sprintf("Format: %s", outputFormat)))
 
 		// Create output directory if it doesn't exist
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			logger.Log.Error("Failed to create output directory", "error", err)
+			fmt.Println(ui.Error("Failed to create output directory: " + err.Error()))
 			return
 		}
 
 		// Read input results
 		data, err := os.ReadFile(inputFile)
 		if err != nil {
-			logger.Log.Error("Failed to read input file", "error", err)
+			fmt.Println(ui.Error("Failed to read input file: " + err.Error()))
 			return
 		}
 
 		var result policy.Result
 		if err := json.Unmarshal(data, &result); err != nil {
-			logger.Log.Error("Failed to parse scan results", "error", err)
+			fmt.Println(ui.Error("Failed to parse scan results: " + err.Error()))
 			return
+		}
+
+		// Safety check for unmarshaled data
+		if result.Stats.SeverityCount == nil {
+			result.Stats.SeverityCount = make(map[policy.Severity]int)
 		}
 
 		// Format report
 		formatter, err := report.GetFormatter(outputFormat)
 		if err != nil {
-			logger.Log.Warn("Invalid output format, defaulting to JSON", "format", outputFormat)
+			fmt.Println(ui.Warning("Invalid output format, defaulting to JSON"))
 			formatter = &report.JSONFormatter{}
+			outputFormat = "json"
 		}
 
 		outputData, err := formatter.Format(&result)
 		if err != nil {
-			logger.Log.Error("Failed to format report", "error", err)
+			fmt.Println(ui.Error("Failed to format report: " + err.Error()))
 			return
 		}
 
@@ -62,9 +70,9 @@ and generates a report in the specified format (JSON, YAML, or HTML).`,
 		outputFile := filepath.Join(outputDir, fmt.Sprintf("report.%s", outputFormat))
 		err = report.SaveToFile(outputData, outputFile)
 		if err != nil {
-			logger.Log.Error("Failed to save report", "error", err)
+			fmt.Println(ui.Error("Failed to save report: " + err.Error()))
 		} else {
-			fmt.Printf("Report saved to %s\n", outputFile)
+			fmt.Println(ui.Success("Report successfully saved to " + outputFile))
 		}
 	},
 }

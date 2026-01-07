@@ -28,6 +28,14 @@ func (f *YAMLFormatter) Format(result *policy.Result) ([]byte, error) {
 	return yaml.Marshal(result)
 }
 
+// TextFormatter is a fallback for CLI output
+type TextFormatter struct{}
+
+func (f *TextFormatter) Format(result *policy.Result) ([]byte, error) {
+	// This is typically handled by the CLI logic directly for vibrancy
+	return []byte("Summary: " + fmt.Sprintf("%d issues found", result.Stats.TotalIssues)), nil
+}
+
 // SaveToFile writes the formatted report to a file
 func SaveToFile(data []byte, filename string) error {
 	return os.WriteFile(filename, data, 0644)

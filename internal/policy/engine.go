@@ -37,13 +37,16 @@ func (e *Engine) Run(ctx context.Context, namespace string) (*Result, error) {
 				SeverityLow:      0,
 				SeverityInfo:     0,
 			},
+			TotalIssues:      0,
+			ResourcesScanned: 0,
 		},
 	}
 
 	for _, scanner := range e.scanners {
 		issues, err := scanner.Scan(ctx, e.client, namespace)
 		if err != nil {
-			logger.Error("Scanner failed", "error", err)
+			logger.Error("Scanner failed partially", "error", err, "scanner", fmt.Sprintf("%T", scanner))
+			// We continue to allow other scanners to run
 			continue
 		}
 
@@ -81,6 +84,47 @@ func (p *PodScanner) Scan(ctx context.Context, client *k8s.Client, namespace str
 					Resource:    pod.Name,
 					Namespace:   pod.Namespace,
 					Remediation: "Remove 'privileged: true' from securityContext.",
+					Category:    "Pod Security",
+				})
+			}
+
+			// Check: ReadOnlyRootFilesystem
+			isReadOnly := false
+			if container.SecurityContext != nil && container.SecurityContext.ReadOnlyRootFilesystem != nil {
+				isReadOnly = *container.SecurityContext.ReadOnlyRootFilesystem
+			}
+			// Note: readOnlyRootFilesystem is only in Container.SecurityContext, not Pod.SecurityContext
+
+			if !isReadOnly {
+				issues = append(issues, Issue{
+					ID:          "HK-002",
+					Title:       "Writable Root Filesystem",
+					Description: fmt.Sprintf("Pod %s in namespace %s has a container with a writable root filesystem: %s", pod.Name, pod.Namespace, container.Name),
+					Severity:    SeverityMedium,
+					Resource:    pod.Name,
+					Namespace:   pod.Namespace,
+					Remediation: "Set 'readOnlyRootFilesystem: true' in securityContext.",
+					Category:    "Pod Security",
+				})
+			}
+
+			// Check: RunAsNonRoot
+			runAsNonRoot := false
+			if container.SecurityContext != nil && container.SecurityContext.RunAsNonRoot != nil {
+				runAsNonRoot = *container.SecurityContext.RunAsNonRoot
+			} else if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.RunAsNonRoot != nil {
+				runAsNonRoot = *pod.Spec.SecurityContext.RunAsNonRoot
+			}
+
+			if !runAsNonRoot {
+				issues = append(issues, Issue{
+					ID:          "HK-003",
+					Title:       "Run As Root Allowed",
+					Description: fmt.Sprintf("Pod %s in namespace %s does not enforce 'runAsNonRoot': %s", pod.Name, pod.Namespace, container.Name),
+					Severity:    SeverityHigh,
+					Resource:    pod.Name,
+					Namespace:   pod.Namespace,
+					Remediation: "Set 'runAsNonRoot: true' in securityContext.",
 					Category:    "Pod Security",
 				})
 			}

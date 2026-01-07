@@ -1,7 +1,6 @@
 package report
 
 import (
-	"fmt"
 	"html/template"
 	"strings"
 
@@ -186,12 +185,4 @@ func (f *HTMLFormatter) Format(result *policy.Result) ([]byte, error) {
 	}
 
 	return []byte(buf.String()), nil
-}
-
-// TextFormatter is a fallback for CLI output
-type TextFormatter struct{}
-
-func (f *TextFormatter) Format(result *policy.Result) ([]byte, error) {
-	// This is handled by the CLI logic directly for vibrancy
-	return []byte("Summary: " + fmt.Sprintf("%d issues found", result.Stats.TotalIssues)), nil
 }
